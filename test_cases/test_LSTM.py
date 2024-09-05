@@ -31,8 +31,7 @@ decoder = AttentionDecoder(
 def test_attentionforward():
     encoder_out, encoder_out_hidden = encoder(enc_input)
     #print(encoder_out.shape, encoder_out_hidden[0].shape, encoder_out_hidden[1].shape)
-    # we only want the data from the context vector
-    # here we transpose it to get it in the dim we want
+    # we only want the data from the context vector. here we transpose it to get it in the dim we want
     encoder_out_hc = t.transpose(encoder_out_hidden[1], 0, 1)
     decoder_out, decoder_out_hidden = decoder(encoder_out, encoder_out_hc)
         

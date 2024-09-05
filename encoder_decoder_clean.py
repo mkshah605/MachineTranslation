@@ -18,7 +18,6 @@ gu_tokens_file = "vocab_gu.txt"
 gu_sentences, gu_words, gu_word2index, gu_index2word, guj_seq_collection = TextProcessing.run_text_processing(TextProcessing(), directory=directory, corpus_file=gu_corpus_file, vocab_file=gu_tokens_file, max_sent_len=50)
 
 
-
 class EncoderLSTM(nn.Module):
     def __init__(self, embedding_dim, eng_vocab_size, hidden_size, num_layers, dropout_p=0.1):
         """
@@ -37,8 +36,6 @@ class EncoderLSTM(nn.Module):
         embedded = self.embedding(input)
         output, hidden = self.lstm(embedded)
         return output, hidden
-
-
 
 class DecoderLSTM(nn.Module):
     def __init__(self, embedding_dim, guj_vocab_size, hidden_size, num_layers, dropout_p=0.1):
@@ -139,8 +136,6 @@ class AttentionDecoder(DecoderLSTM):
         decoder_outputs = F.log_softmax(decoder_outputs, dim=-1) # softmax all the tensors at one time, over the guj_vocab_size dimension
         return decoder_outputs, decoder_hidden
     
-
-
 class CrossAttention(nn.Module):
     def __init__(self, d_in, d_out_kq, d_out_v):
         # d_in: embedding size

@@ -214,7 +214,7 @@ class AttentionDecoder(DecoderLSTM):
         # This limit is in place to prevent our model from running infinitely
         attn_weights = t.Tensor()
         for n in range(50):
-            output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[-1], decoder_input, decoder_in_hc)
+            output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[:, -1], decoder_input, decoder_in_hc)
             # output is batch size x vocab size
             # but we just need the index of the token (like the original input)
             # this is the predicted token that will be fed into the next step of the model run
@@ -229,7 +229,7 @@ class AttentionDecoder(DecoderLSTM):
             # detach here so that we don't compute gradients on this decoder_input
             print("decoder_outputs", decoder_outputs.shape)
             print("output", output.shape)
-            decoder_outputs = t.cat([decoder_outputs, output]) # we want to save all of the predicted words we get along the way. Why??
+            decoder_outputs = t.cat([decoder_outputs, output], dim=1) # concatenate over the batch size dimension
             attn_weights = t.cat([attn_weights, attention_weights])
             
 

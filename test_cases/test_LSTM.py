@@ -1,6 +1,6 @@
 
 import sys, os
-sys.path.append("/Users/mkshah605/Documents/GitHub/RC/NMT_IndicLang")
+sys.path.append("/Users/mkshah605/Documents/GitHub/MachineTranslation")
 from encoder_decoder import EncoderLSTM, DecoderLSTM, CrossAttention, AttentionDecoder
 import torch as t
 

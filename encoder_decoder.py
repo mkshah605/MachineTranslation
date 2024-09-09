@@ -264,12 +264,16 @@ class CrossAttention(nn.Module):
         # But unlike self-attention, the values come from the 2nd input (x2) -> which comes from gujarati
         # The weights are based on the interaction between x1 and x2
         print("x1, and x2 shape: ", x_1.shape, x_2.shape)
-
+        if len(x_2.shape) == 2:
+            x_2 = x_2.unsqueeze(1) # make the second tensor 3D from 2D
+        print("x1, and x2 shape: ", x_1.shape, x_2.shape)
         queries_1 = x_1 @ self.W_query
         keys_2 = x_2 @ self.W_key
         values_2 = x_2 @ self.W_value
 
-        attn_scores = queries_1 @ keys_2.T 
+        #attn_scores = queries_1 @ keys_2.T 
+        attn_scores: Float[t.Tensor, "batch_size seq_len 1"] = t.bmm(queries_1, keys_2.transpose(1, 2))
+        print("attn scores shape", attn_scores.shape)
         attn_weights = t.softmax(
             attn_scores / self.d_out_kq**0.5, dim=-1)
         

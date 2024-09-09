@@ -128,9 +128,9 @@ class AttentionDecoder(DecoderLSTM):
 
         attn_weights = t.Tensor()
         for n in range(50):
-            output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[-1], decoder_input, decoder_in_hc)
+            output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[:, -1], decoder_input, decoder_in_hc)
             decoder_input = t.argmax(output, dim=-1).detach() # taking the max prob (explicitly greedy search!) argmax over vocab size!
-            decoder_outputs = t.cat([decoder_outputs, output]) # we want to save all of the predicted words we get along the way. Why??
+            decoder_outputs = t.cat([decoder_outputs, output], dim=1) # we want to save all of the predicted words we get along the way. Why??
             attn_weights = t.cat([attn_weights, attention_weights])
             
         decoder_outputs = F.log_softmax(decoder_outputs, dim=-1) # softmax all the tensors at one time, over the guj_vocab_size dimension
@@ -152,12 +152,16 @@ class CrossAttention(nn.Module):
     def forward(self, 
                 x_1: Int[t.Tensor, "batch_size seq_len hidden_size"], 
                 x_2):
+        
+        if len(x_2.shape) == 2:
+            x_2 = x_2.unsqueeze(1) # make the second tensor 3D from 2D
 
         queries_1 = x_1 @ self.W_query
         keys_2 = x_2 @ self.W_key
         values_2 = x_2 @ self.W_value
 
-        attn_scores = queries_1 @ keys_2.T 
+        # attn_scores = queries_1 @ keys_2.T
+        attn_scores: Float[t.Tensor, "batch_size seq_len 1"] = t.bmm(queries_1, keys_2.transpose(1, 2))
         attn_weights = t.softmax(
             attn_scores / self.d_out_kq**0.5, dim=-1)
         

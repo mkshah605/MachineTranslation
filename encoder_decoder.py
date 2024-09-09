@@ -8,7 +8,7 @@ device = t.device("mps")
 
 # Run Text Processing
 
-directory = "/Users/mkshah605/Documents/GitHub/RC/NMT_IndicLang/corpus_files"
+directory = "/Users/mkshah605/Documents/GitHub/MachineTranslation/corpus_files"
 
 en_corpus_file = "train_en.txt"
 gu_corpus_file = "train_gu.txt"
@@ -224,8 +224,13 @@ class AttentionDecoder(DecoderLSTM):
             # COMMENTED BELOW
             # attn_weights, new_output = self.attention(encoder_output, output)
             print("output & hidden dimensions", output.shape, decoder_hidden[0].shape, decoder_hidden[1].shape)
-
-            decoder_input = t.argmax(output, dim=-1).detach() # taking the max prob (explicitly greedy search!) argmax over vocab size!
+            example = t.Tensor(t.ones(4)*3)
+            print("example tensor ", output[0:50])
+            decoder_input = t.argsort(output, dim=-1, stable=True).detach()
+            print("decoder_input", decoder_input[:, :, -1], decoder_input[:, :, -1].shape)
+            # argmax returns indexes (argsort apparently does too?)
+            decoder_input_2 = t.argmax(output, dim=-1).detach() # taking the max prob (explicitly greedy search!) argmax over vocab size!
+            print("decoder_input_2", decoder_input_2.shape)
             # detach here so that we don't compute gradients on this decoder_input
             print("decoder_outputs", decoder_outputs.shape)
             print("output", output.shape)

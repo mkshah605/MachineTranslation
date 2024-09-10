@@ -8,7 +8,10 @@ batch_size = 30
 seq_len = 45
 eng_vocab_size = 1500
 guj_vocab_size = 2500
-enc_input = t.zeros([batch_size, seq_len]).long()
+#enc_input = t.zeros([batch_size, seq_len]).long()
+
+encoder_input_tokens = t.zeros([batch_size, seq_len]).long()
+decoder_input_tokens = t.zeros([batch_size, seq_len]).long() # pretend the first token in this sequence is <SOS>
 
 # Create the encoder with all the parameters
 encoder = EncoderLSTM(
@@ -29,9 +32,9 @@ decoder = AttentionDecoder(
     dropout_p=0.1)
         
 def test_attentionforward():
-    encoder_out, encoder_out_hidden = encoder(enc_input)
-    #print(encoder_out.shape, encoder_out_hidden[0].shape, encoder_out_hidden[1].shape)
+    encoder_out, encoder_out_hidden = encoder(encoder_input_tokens)
+    print(encoder_out.shape, encoder_out_hidden[0].shape, encoder_out_hidden[1].shape)
     # we only want the data from the context vector. here we transpose it to get it in the dim we want
     encoder_out_hc = t.transpose(encoder_out_hidden[1], 0, 1)
-    decoder_out, decoder_out_hidden = decoder(encoder_out, encoder_out_hc)
+    decoder_out, decoder_out_hidden = decoder(decoder_input_tokens, encoder_out, encoder_out_hc)
         

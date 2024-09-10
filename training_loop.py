@@ -89,14 +89,14 @@ class TrainingLoop:
 
         return loss
     
-    # to be used with Attention layer?
+    # to be used with Attention layer
     def training_step2(self, batch, encoder, encoder_optimizer, decoder, decoder_optimizer, criterion):
         '''
         '''
         input_tensor, target_tensor = batch
         encoder_output, encoder_output_hidden = encoder(input_tensor)
-        encoder_out_hidden = t.transpose(encoder_output_hidden[1], 0, 1)
-        output, hidden = decoder(encoder_output, encoder_out_hidden)
+        encoder_out_hc = t.transpose(encoder_output_hidden[1], 0, 1)
+        output, hidden = decoder(target_tensor, encoder_output, encoder_out_hc)
         loss = criterion(
             output.view(-1, output.size(-1)), target_tensor.view(-1)
         )
@@ -116,8 +116,8 @@ class TrainingLoop:
         '''
         input_tensor, target_tensor = batch
         encoder_output, encoder_output_hidden = encoder(input_tensor)
-        encoder_out = t.transpose(encoder_output_hidden[1], 0, 1)
-        output, hidden = decoder(encoder_out)
+        encoder_out_hc = t.transpose(encoder_output_hidden[1], 0, 1)
+        output, hidden = decoder(encoder_out_hc)
 
         predictions = output.argmax(dim=-1)
         correct = (predictions == target_tensor).flatten()

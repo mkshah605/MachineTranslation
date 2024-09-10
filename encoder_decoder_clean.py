@@ -2,6 +2,7 @@ import torch as t
 import torch.nn.functional as F
 from torch import nn
 from jaxtyping import Float, Int
+from typing import Tuple
 from textprocessing import TextProcessing
 
 device = t.device("mps")
@@ -114,27 +115,56 @@ class AttentionDecoder(DecoderLSTM):
         
         return decoder_output, decoder_hidden, attention_weights
     
-    def forward(self, 
-                encoder_output: Int[t.Tensor, "batch_size seq_len hidden_size"], 
-                encoder_out_hc: Int[t.Tensor, "batch_size d_model_encoder hidden_size"]):
+    # def forward(self, 
+    #             encoder_output: Int[t.Tensor, "batch_size seq_len hidden_size"], 
+    #             encoder_out_hc: Int[t.Tensor, "batch_size d_model_encoder hidden_size"]):
 
-        batch_size = encoder_out_hc.shape[0]
+    #     batch_size = encoder_out_hc.shape[0]
 
-        decoder_input = encoder_output
-        decoder_in_hc = encoder_out_hc # value from encoder
+    #     decoder_input = encoder_output
+    #     decoder_in_hc = encoder_out_hc # value from encoder
 
-        decoder_input_int = gu_word2index["<s>"] #  Get the index of the start token. this value is 1
-        decoder_outputs: t.Tensor = t.LongTensor([[decoder_input_int]*batch_size]).T # dim: [batch_size, 1]
+    #     decoder_input_int = gu_word2index["<s>"] #  Get the index of the start token. this value is 1
+    #     decoder_outputs: t.Tensor = t.LongTensor([[decoder_input_int]*batch_size]).T # dim: [batch_size, 1]
 
-        attn_weights = t.Tensor()
-        for n in range(50):
-            output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[:, -1], decoder_input, decoder_in_hc)
-            decoder_input = t.argmax(output, dim=-1).detach() # taking the max prob (explicitly greedy search!) argmax over vocab size!
-            decoder_outputs = t.cat([decoder_outputs, output], dim=1) # we want to save all of the predicted words we get along the way. Why??
-            attn_weights = t.cat([attn_weights, attention_weights])
+    #     attn_weights = t.Tensor()
+    #     for n in range(50):
+    #         output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[:, -1], decoder_input, decoder_in_hc)
+    #         decoder_input = t.argmax(output, dim=-1).detach() # taking the max prob (explicitly greedy search!) argmax over vocab size!
+    #         decoder_outputs = t.cat([decoder_outputs, output], dim=1) # we want to save all of the predicted words we get along the way. Why??
+    #         attn_weights = t.cat([attn_weights, attention_weights])
             
-        decoder_outputs = F.log_softmax(decoder_outputs, dim=-1) # softmax all the tensors at one time, over the guj_vocab_size dimension
-        return decoder_outputs, decoder_hidden
+    #     decoder_outputs = F.log_softmax(decoder_outputs, dim=-1) # softmax all the tensors at one time, over the guj_vocab_size dimension
+    #     return decoder_outputs, decoder_hidden
+    
+
+    def forward(self, 
+                decoder_tokens: Int[t.Tensor, "batch_size seq_len"],
+                encoder_output: Int[t.Tensor, "batch_size seq_len hidden_size"], 
+                encoder_out_hc: Int[t.Tensor, "batch_size d_model_encoder hidden_size"],
+                ) -> Tuple[
+                    Float[t.Tensor, "batch_size seq_len d_vocab"], Tuple[t.Tensor, t.Tensor]
+                    ]:
+        # Big picture: 
+        # The decoder takes in the hidden layer from the encoder, as well as the previous predicted word
+        # For the first round, the previous predicted word is the start token
+        decoder_in_hc = encoder_out_hc  # value from encoder
+        decoder_outputs = t.Tensor()
+
+        attn_weights = []
+
+        for n in range(50):
+            if n == 0: # if first time going through, take the start token
+                decoder_token_input = decoder_tokens[:, 0]
+            else: # take the last predicted token
+                decoder_token_input = decoder_outputs[:, -1].argmax(dim=-1)
+            output, decoder_out_hidden, attention_weights = self.forward_step(decoder_token_input, encoder_output, decoder_in_hc)
+  
+            decoder_outputs = t.cat([decoder_outputs, output], dim=1)
+            attn_weights.append(attention_weights)
+        decoder_outputs = F.log_softmax(decoder_outputs, dim=-1)
+  
+        return decoder_outputs, decoder_out_hidden
     
 class CrossAttention(nn.Module):
     def __init__(self, d_in, d_out_kq, d_out_v):

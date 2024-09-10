@@ -1,7 +1,7 @@
 import torch as t
 
 from textprocessing import TextProcessing
-from encoder_decoder import EncoderLSTM, DecoderLSTM, CrossAttention
+from encoder_decoder import EncoderLSTM, DecoderLSTM, AttentionDecoder, CrossAttention
 from training_loop import TrainingLoop
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, random_split
 
@@ -43,10 +43,21 @@ decoder = DecoderLSTM(
     num_layers= 2, 
     dropout_p=0.1).to(device)
 
+
+# # Create the Attention decoder with all the parameters
+decoder = AttentionDecoder(
+    embedding_dim=150, 
+    guj_vocab_size=guj_vocab_size, 
+    hidden_size=128, 
+    num_layers= 2, 
+    d_out_kq= 64, 
+    d_out_v= 128, 
+    dropout_p=0.1)
+
 # Create the attention layer with all the parameters
 t.manual_seed(123)
-d_in, d_out_kq, d_out_v = 150, 64, 64
-crossattn = CrossAttention(d_in, d_out_kq, d_out_v)
+# d_in, d_out_kq, d_out_v = 150, 64, 64
+# crossattn = CrossAttention(d_in, d_out_kq, d_out_v)
 
 # first_input = embedded_sentence
 # second_input = t.rand(8, d_in)

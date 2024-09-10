@@ -2,12 +2,14 @@ import torch as t
 import torch.nn.functional as F
 from torch import nn
 from jaxtyping import Float, Int
+from typing import Tuple
 from textprocessing import TextProcessing
 
 device = t.device("mps")
 
 # Run Text Processing
 
+directory = "/Users/mkshah605/Documents/GitHub/MachineTranslation/corpus_files"
 directory = "/Users/mkshah605/Documents/GitHub/MachineTranslation/corpus_files"
 
 en_corpus_file = "train_en.txt"
@@ -192,27 +194,67 @@ class AttentionDecoder(DecoderLSTM):
         
         return decoder_output, decoder_hidden, attention_weights
     
+    # def forward(self, 
+    #             encoder_output: Int[t.Tensor, "batch_size seq_len hidden_size"], 
+    #             encoder_out_hc: Int[t.Tensor, "batch_size d_model_encoder hidden_size"]):
+    #     # Big picture: 
+    #     # The decoder takes in the hidden layer from the encoder, as well as the previous predicted word
+    #     # For the first round, the previous predicted word is the start token
+    #     batch_size = encoder_out_hc.shape[0]
+
+    #     decoder_input = encoder_output
+    #     decoder_in_hc = encoder_out_hc # value from encoder
+    #     print("decoder hidden shape: ", decoder_in_hc.shape)
+
+    #     decoder_input_int = gu_word2index["<s>"] #  Get the index of the start token. this value is 1
+    #     decoder_outputs: t.Tensor = t.LongTensor([[decoder_input_int]*batch_size]).T # dim: [batch_size, 1]
+    #     # decoder_outputs is all of our
+    #     # [s s s s s s s s s],
+    #     # [1,2,3,...],
+    #     # [e, e, e, e, e]
+
+    #     # Our longest gujarati sentence is 46 tokens, so we will predict the next word up tp 50 times. 
+    #     # This limit is in place to prevent our model from running infinitely
+    #     attn_weights = t.Tensor()
+    #     for n in range(50):
+    #         output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[:, -1], decoder_input, decoder_in_hc)
+    #         # output is batch size x vocab size
+    #         # but we just need the index of the token (like the original input)
+    #         # this is the predicted token that will be fed into the next step of the model run
+    #         # can do this with the argmax
+    #         # TODO: implement beam search 
+
+    #         # COMMENTED BELOW
+    #         # attn_weights, new_output = self.attention(encoder_output, output)
+    #         print("output & hidden dimensions", output.shape, decoder_hidden[0].shape, decoder_hidden[1].shape)
+
+    #         decoder_input = t.argmax(output, dim=-1).detach() # taking the max prob (explicitly greedy search!) argmax over vocab size!
+    #         # detach here so that we don't compute gradients on this decoder_input
+    #         print("decoder_outputs", decoder_outputs.shape)
+    #         print("output", output.shape)
+    #         decoder_outputs = t.cat([decoder_outputs, output], dim=1) # concatenate over the batch size dimension
+    #         attn_weights = t.cat([attn_weights, attention_weights])
+            
+
+    #     decoder_outputs = F.log_softmax(decoder_outputs, dim=-1) # softmax all the tensors at one time, over the guj_vocab_size dimension
+    #     return decoder_outputs, decoder_hidden
+    
+
     def forward(self, 
-                encoder_output: Int[t.Tensor, "batch_size seq_len hidden_size"], encoder_out_hc: Int[t.Tensor, "batch_size d_model_encoder hidden_size"]):
+                decoder_tokens: Int[t.Tensor, "batch_size seq_len"],
+                encoder_output: Int[t.Tensor, "batch_size seq_len hidden_size"], 
+                encoder_out_hc: Int[t.Tensor, "batch_size d_model_encoder hidden_size"],
+                ) -> Tuple[
+                    Float[t.Tensor, "batch_size seq_len d_vocab"], Tuple[t.Tensor, t.Tensor]
+                    ]:
         # Big picture: 
         # The decoder takes in the hidden layer from the encoder, as well as the previous predicted word
         # For the first round, the previous predicted word is the start token
-        batch_size = encoder_out_hc.shape[0]
+        decoder_in_hc = encoder_out_hc  # value from encoder
+        decoder_outputs = t.Tensor()
 
-        decoder_input = encoder_output
-        decoder_in_hc = encoder_out_hc # value from encoder
-        print("decoder hidden shape: ", decoder_in_hc.shape)
+        attn_weights = []
 
-        decoder_input_int = gu_word2index["<s>"] #  Get the index of the start token. this value is 1
-        decoder_outputs: t.Tensor = t.LongTensor([[decoder_input_int]*batch_size]).T # dim: [batch_size, 1]
-        # decoder_outputs is all of our
-        # [s s s s s s s s s],
-        # [1,2,3,...],
-        # [e, e, e, e, e]
-
-        # Our longest gujarati sentence is 46 tokens, so we will predict the next word up tp 50 times. 
-        # This limit is in place to prevent our model from running infinitely
-        attn_weights = t.Tensor()
         for n in range(50):
             output, decoder_hidden, attention_weights = self.forward_step(decoder_outputs[-1], decoder_input, decoder_in_hc)
             # output is batch size x vocab size
@@ -241,6 +283,17 @@ class AttentionDecoder(DecoderLSTM):
         decoder_outputs = F.log_softmax(decoder_outputs, dim=-1) # softmax all the tensors at one time, over the guj_vocab_size dimension
         return decoder_outputs, decoder_hidden
     
+            if n == 0: # if first time going through, take the start token
+                decoder_token_input = decoder_tokens[:, 0]
+            else: # take the last predicted token
+                decoder_token_input = decoder_outputs[:, -1].argmax(dim=-1)
+            output, decoder_out_hidden, attention_weights = self.forward_step(decoder_token_input, encoder_output, decoder_in_hc)
+  
+            decoder_outputs = t.cat([decoder_outputs, output], dim=1)
+            attn_weights.append(attention_weights)
+        decoder_outputs = F.log_softmax(decoder_outputs, dim=-1)
+  
+        return decoder_outputs, decoder_out_hidden
 
 
 class CrossAttention(nn.Module):
@@ -269,12 +322,16 @@ class CrossAttention(nn.Module):
         # But unlike self-attention, the values come from the 2nd input (x2) -> which comes from gujarati
         # The weights are based on the interaction between x1 and x2
         print("x1, and x2 shape: ", x_1.shape, x_2.shape)
-
+        if len(x_2.shape) == 2:
+            x_2 = x_2.unsqueeze(1) # make the second tensor 3D from 2D
+        print("x1, and x2 shape: ", x_1.shape, x_2.shape)
         queries_1 = x_1 @ self.W_query
         keys_2 = x_2 @ self.W_key
         values_2 = x_2 @ self.W_value
 
-        attn_scores = queries_1 @ keys_2.T 
+        #attn_scores = queries_1 @ keys_2.T 
+        attn_scores: Float[t.Tensor, "batch_size seq_len 1"] = t.bmm(queries_1, keys_2.transpose(1, 2))
+        print("attn scores shape", attn_scores.shape)
         attn_weights = t.softmax(
             attn_scores / self.d_out_kq**0.5, dim=-1)
         

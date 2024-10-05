@@ -8,7 +8,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, random_sp
 device = t.device("mps")
 
 # Run Text Processing
-directory = "/Users/mkshah605/Documents/GitHub/RC/NMT_IndicLang/corpus_files"
+directory = "/Users/mkshah605/Documents/GitHub/MachineTranslation/corpus_files"
 
 en_corpus_file = "train_en.txt"
 gu_corpus_file = "train_gu.txt"
